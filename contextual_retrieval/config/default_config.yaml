@@ -1,0 +1,33 @@
+bedrock:
+  region: 'us-west-2'
+  llm:
+    model_id: 'anthropic.claude-3-5-haiku-20241022-v1:0'
+    max_tokens: 1024
+    temperature: 0
+  embedding:
+    model_id: 'amazon.titan-embed-text-v2:0'
+    dimension: 1024
+    batch_size: 32
+  rerank:
+    model_id: 'amazon.rerank-v1:0' # cohere.rerank-v3-5:0
+  answer:
+    model_id: 'anthropic.claude-3-5-haiku-20241022-v1:0'
+    max_tokens: 1000
+    temperature: 0
+
+chromadb:
+  persist_directory: "./tests/chroma_db"
+  collection_name: "contextual_retrieval"
+
+document:
+  chunk_size: 512
+  chunk_overlap: 50
+  chunk_method: "word"  # word or character
+  supported_formats: [".pdf", ".txt", ".docx"]
+
+search:
+  default_mode: "contextual_embedding" # contextual_embedding, contextual_bm25, rerank
+  default_top_k: 5
+  score_weights:
+    embedding: 0.7
+    bm25: 0.3
