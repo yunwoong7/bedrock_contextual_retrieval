@@ -1,6 +1,10 @@
 # context_generator.py
 # Description: Context generator using AWS Bedrock Claude model.
 
+"""
+Context generator using AWS Bedrock Claude model.
+"""
+
 import json
 import boto3
 from contextual_retrieval.config import get_config
@@ -15,26 +19,58 @@ class ContextGenerator:
             region_name=_config["bedrock"]["region"]
         )
         self.model_id = _config["bedrock"]["llm"]["model_id"]
+        self.context_method = _config["document"]["context_method"]
+        self.context_window = _config["document"]["context_window"]
 
     def clean_text(self, text: str) -> str:
         """Clean text by handling encoding issues"""
         return text.encode('utf-8', 'ignore').decode('utf-8')
 
-    def generate_context(self, query: str, answer: str) -> str:
+    def get_context_for_chunk(self, full_doc: str, chunk: str) -> str:
         """
-        Generate context from query and answer using Claude.
+        Get context for a chunk based on configuration method
 
         Parameters:
-        - query (str): The input query
-        - answer (str): The answer to generate context for
+        - full_doc (str): Full document text
+        - chunk (str): Chunk to get context for
+
+        Returns:
+        - str: Context for the chunk (full doc or window)
+        """
+        if self.context_method == "full":
+            return full_doc
+        else:  # window method
+            chunk_start = full_doc.find(chunk)
+            if chunk_start == -1:
+                return full_doc
+
+            start = max(0, chunk_start - self.context_window)
+            end = min(len(full_doc), chunk_start + len(chunk) + self.context_window)
+            return full_doc[start:end]
+
+    def generate_context(self, full_doc: str, chunk: str) -> str:
+        """
+        Generate context for a chunk using full document or window.
+
+        Parameters:
+        - full_doc (str): Full document content
+        - chunk (str): The chunk to generate context for
 
         Returns:
         - str: Generated context
         """
-        prompt = f"""다음 질문과 답변에 대한 맥락을 생성해주세요. 답변의 핵심 정보를 포함하면서도 검색과 검색 결과 개선에 도움이 되도록 해주세요.
-        질문: {query}
-        답변: {answer}
-        맥락 정보만 간단히 작성해주세요."""
+        context = self.get_context_for_chunk(full_doc, chunk)
+
+        prompt = f"""Here is a section from a document, with its context:
+
+Document Context:
+{context}
+
+Specific Section to Focus on:
+{chunk}
+
+Please provide a brief context that situates this specific section within the broader document. Focus on key relationships and relevance.
+Answer only with the succinct context, nothing else."""
 
         try:
             response = self.client.invoke_model(
@@ -66,15 +102,42 @@ if __name__ == "__main__":
             generator = ContextGenerator()
             print("✓ Generator initialization successful")
 
-            # Test context generation
-            query = "인공지능이란 무엇인가요?"
-            answer = "인공지능은 인간의 학습능력과 추론능력을 컴퓨터로 구현한 기술입니다."
+            # Test document
+            full_doc = """
+           1. 개요
+           이 문서는 시스템 설계 명세를 담고 있습니다.
 
-            context = generator.generate_context(query, answer)
-            print("\n✓ Context generation successful")
-            print(f"\nQuery: {query}")
-            print(f"Answer: {answer}")
-            print(f"Generated Context: {context}")
+           2. 아키텍처
+           시스템은 3계층으로 구성됩니다.
+           - 프레젠테이션 계층
+           - 비즈니스 계층
+           - 데이터 계층
+
+           3. 세부사항
+           각 계층별 세부 구현사항은 다음과 같습니다.
+
+           3.1 프레젠테이션 계층
+           사용자 인터페이스를 담당합니다.
+
+           3.2 비즈니스 계층
+           업무 로직을 처리합니다.
+
+           3.3 데이터 계층
+           데이터 저장 및 조회를 담당합니다.
+           """
+
+            # Test with different chunks
+            test_chunks = [
+                "시스템은 3계층으로 구성됩니다.",
+                "비즈니스 계층\n업무 로직을 처리합니다."
+            ]
+
+            for i, chunk in enumerate(test_chunks, 1):
+                print(f"\nTest #{i}")
+                print(f"Chunk: {chunk}")
+
+                context = generator.generate_context(full_doc, chunk)
+                print(f"Generated Context: {context}")
 
             # Test error handling
             try:

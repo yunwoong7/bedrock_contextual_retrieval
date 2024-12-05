@@ -22,8 +22,8 @@ chromadb:
 document:
   chunk_size: 512
   chunk_overlap: 50
-  chunk_method: "word"  # word or character
-  supported_formats: [".pdf", ".txt", ".docx"]
+  context_method: "window"  # "window" 또는 "full"
+  context_window: 1000    # context_method가 "window"일 때만 사용
 
 search:
   default_mode: "contextual_embedding" # contextual_embedding, contextual_bm25, rerank
